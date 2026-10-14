@@ -247,6 +247,8 @@ const CONFIG = {
   TOTAL: 300,
   // WhatsApp con código de país, solo dígitos. Ej: "51987654321". Vacío = sin botones.
   WHATSAPP: "51931381355",
+  // Número de Yape que va dentro del mensaje de WhatsApp, para que lo copien. Vacío = no se incluye.
+  YAPE: "931381355",
   NOMBRE_RIFA: "Sembrando Sonrisas",
   PREMIOS: [
     // img: foto del premio (opcional). Si no carga, se muestra el emoji.
@@ -266,6 +268,7 @@ const CONFIG = {
   const $ = (id) => document.getElementById(id);
   const DEMO = /[?&]demo=1\b/.test(location.search);
   const WA = String(CONFIG.WHATSAPP || "").replace(/\D/g, "");
+  const YAPE = String(CONFIG.YAPE || "").replace(/\D/g, "");
   const ESTADOS = { PAGADO: "P", RESERVADO: "R" };
 
   let estado = null;            // Map n -> "P" | "R"
@@ -300,7 +303,8 @@ const CONFIG = {
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
   function linkWa(n) {
-    const txt = n ? `Hola, quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA}` : `Hola, quiero un número de la rifa ${CONFIG.NOMBRE_RIFA}`;
+    let txt = n ? `Hola, quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA} 🎄` : `Hola, quiero un número de la rifa ${CONFIG.NOMBRE_RIFA} 🎄`;
+    if (YAPE) txt += `\n\n💜 Yape: ${YAPE}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
     return `https://wa.me/${WA}?text=${encodeURIComponent(txt)}`;
   }
 
