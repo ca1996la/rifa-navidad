@@ -142,6 +142,24 @@
   .premio:first-child .pos{background:var(--dorado);color:var(--tinta)}
   .premio p{margin:6px 0 0;font-weight:700;font-size:.95rem}
 
+  /* ---------- Frase graciosa antes de WhatsApp ---------- */
+  .frase{position:fixed;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
+    background:rgba(40,15,5,.6);padding:16px}
+  .frase[hidden]{display:none}
+  .frase-caja{background:var(--crema);width:100%;max-width:400px;border-radius:20px;padding:22px 20px 16px;
+    text-align:center;border-top:6px solid var(--dorado);box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;
+    animation:aparecer .25s ease}
+  @keyframes aparecer{from{transform:scale(.9);opacity:0}}
+  .frase-cerrar{position:absolute;top:6px;right:8px;border:0;background:none;font-size:1.6rem;line-height:1;
+    color:var(--suave);cursor:pointer;padding:4px 8px}
+  .frase-num{font-family:"Baloo 2";font-weight:800;color:var(--rojo);font-size:1.2rem}
+  .frase-texto{font-family:"Baloo 2";font-weight:700;font-size:clamp(1.2rem,5.5vw,1.5rem);line-height:1.25;
+    margin:10px 0 16px;color:var(--tinta)}
+  .frase-pista{height:6px;border-radius:99px;background:var(--crema-2);overflow:hidden}
+  .frase-barra{height:100%;width:0;background:#25a95a}
+  @keyframes llenar{to{width:100%}}
+  .frase-ir{display:block;margin-top:10px;font-size:.88rem;color:var(--verde);font-weight:700;text-decoration:none}
+
   /* ---------- Toast y pie ---------- */
   .toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,150%);background:var(--tinta);
     color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:5;max-width:calc(100% - 32px);
@@ -234,6 +252,16 @@
   <p style="opacity:.8;font-size:.85rem;margin-top:14px">¡Gracias por tu apoyo! ❤️💚💛</p>
 </footer>
 
+<div class="frase" id="frase" hidden>
+  <div class="frase-caja" role="dialog" aria-modal="true" aria-live="assertive" aria-labelledby="fraseTexto">
+    <button class="frase-cerrar" type="button" id="fraseCerrar" aria-label="Cancelar">×</button>
+    <div class="frase-num" id="fraseNum">🎟️ Número 15</div>
+    <p class="frase-texto" id="fraseTexto"></p>
+    <div class="frase-pista"><div class="frase-barra" id="fraseBarra"></div></div>
+    <a class="frase-ir" id="fraseIr" target="_blank" rel="noopener">Abriendo WhatsApp… <u>ir ahora</u></a>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -245,10 +273,58 @@ const CONFIG = {
   FECHA_SORTEO: "2026-12-12T19:00:00-05:00",
   PRECIO: 5,
   TOTAL: 300,
+  // Vendedor por defecto: números que no están en VENDEDORES y botón del pie de página.
   // WhatsApp con código de país, solo dígitos. Ej: "51987654321". Vacío = sin botones.
   WHATSAPP: "51931381355",
   // Número de Yape que va dentro del mensaje de WhatsApp, para que lo copien. Vacío = no se incluye.
   YAPE: "931381355",
+  NOMBRE: "",   // nombre para el saludo ("Hola Ana, ..."); vacío = "Hola, ..."
+  // Cada rango de números lo atiende otra persona, con su propio WhatsApp y Yape.
+  VENDEDORES: [
+    { desde: 1,   hasta: 60,  nombre: "Eva Samira", whatsapp: "51919058534", yape: "919058534" },
+    { desde: 61,  hasta: 120, nombre: "Esther",     whatsapp: "51926943736", yape: "926943736" },
+    { desde: 121, hasta: 180, nombre: "Luis",       whatsapp: "51937795372", yape: "937795372" }
+  ],
+  // Frases al azar que aparecen al tocar un número libre, antes de abrir WhatsApp.
+  FRASES: [
+    // Calculadora
+    "🧮 Si te ganas la calculadora, podrás calcular los días que tu ex se fue.",
+    "🧮 Con la calculadora por fin sabrás cuántas veces dijiste «es la última vez».",
+    "🧮 Gana la calculadora y saca la cuenta de todo lo que gastaste en alguien que te dejó en visto.",
+    "🧮 La calculadora no miente: 1 + 1 = 2… pero tú sigues siendo 1.",
+    "🧮 Con la calculadora podrás dividir la cuenta… porque ya nadie te invita.",
+    // Parlante
+    "🔊 Si ganas el parlante, por fin podrás poner tu playlist de despecho a todo volumen.",
+    "🔊 Con el parlante, que todo el barrio se entere de que estás superándolo… con salsa sensual.",
+    "🔊 Gana el parlante y ponle «Contigo Perú» a tu tristeza.",
+    "🔊 El parlante suena tan fuerte que tu ex lo va a escuchar desde su nueva relación.",
+    "🔊 Con el parlante tendrás a alguien que sí te responda cuando le hablas: «Dispositivo conectado».",
+    // Ceviche
+    "🦐 Si ganas el ceviche, tendrás algo que sí te va a llenar el corazón (y la panza).",
+    "🦐 El ceviche sí te va a dejar picando… pero de rocoto, no de celos.",
+    "🦐 Gana el ceviche: el único amor que llega fresquito y no te cambia por otro.",
+    "🦐 Con el ceviche olvidarás a tu ex en dos cucharadas de leche de tigre.",
+    "🦐 El ceviche mixto es como tu ex: tiene de todo… pero este sí lo vas a disfrutar.",
+    // Cargador
+    "🔋 Si ganas el cargador portátil, podrás mantener tu celular cargado para ver cómo ella ignora tus mensajes.",
+    "🔋 Con el cargador tendrás batería para revisar 47 veces si te escribió. (No te escribió).",
+    "🔋 Gana el cargador: por lo menos algo en tu vida tendrá energía al 100 %.",
+    "🔋 El cargador te durará más que tu última relación.",
+    "🔋 Con el cargador nunca más dirás «se me apagó el cel» como excusa… ahora será verdad que no te escriben.",
+    // Audífonos
+    "🎧 Si ganas los audífonos, podrás llorar escuchando baladas sin que nadie te pregunte.",
+    "🎧 Con los audífonos no escucharás cuando te pregunten «¿y tu pareja?» en la cena navideña.",
+    "🎧 Gana los audífonos y escucha a Romeo Santos sin que tu familia sepa que sigues mal.",
+    "🎧 Los audífonos son inalámbricos, como tu ex: se desconectan sin avisar.",
+    "🎧 Con los audífonos podrás ignorar a todos… así como te ignoraron a ti.",
+    // Cena romántica
+    "🍷 Si ganas la cena romántica… bueno, primero consigue con quién ir.",
+    "🍷 Gana la cena para dos y ve con tu mamá: ella sí nunca te falló.",
+    "🍷 La cena incluye vino… para que brindes por tu soltería.",
+    "🍷 Si ganas la cena, el chaufa sí te va a abrazar como nadie lo hizo este año.",
+    "🍷 Cena romántica para dos: tú y tu wantán frito. Una relación estable al fin."
+  ],
+  FRASE_MS: 2000,   // tiempo que se muestra la frase antes de abrir WhatsApp
   NOMBRE_RIFA: "Sembrando Sonrisas",
   PREMIOS: [
     // img: foto del premio (opcional). Si no carga, se muestra el emoji.
@@ -302,11 +378,48 @@ const CONFIG = {
     $("pieWa").innerHTML = `<a class="btn wa wa-flotante" href="${linkWa()}" target="_blank" rel="noopener">💬 Pide tu número por WhatsApp</a>`;
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-  function linkWa(n) {
-    let txt = n ? `Hola, quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA} 🎄` : `Hola, quiero un número de la rifa ${CONFIG.NOMBRE_RIFA} 🎄`;
-    if (YAPE) txt += `\n\n💜 Yape: ${YAPE}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
-    return `https://wa.me/${WA}?text=${encodeURIComponent(txt)}`;
+  function vendedorDe(n) {
+    const v = n && (CONFIG.VENDEDORES || []).find((x) => n >= x.desde && n <= x.hasta);
+    if (!v) return { nombre: CONFIG.NOMBRE || "", wa: WA, yape: YAPE };
+    return { nombre: v.nombre || "", wa: String(v.whatsapp || "").replace(/\D/g, ""), yape: String(v.yape || "").replace(/\D/g, "") };
   }
+  function linkWa(n, frase) {
+    const v = vendedorDe(n), hola = v.nombre ? `Hola ${v.nombre},` : "Hola,";
+    let txt = n ? `${hola} quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA} 🎄` : `${hola} quiero un número de la rifa ${CONFIG.NOMBRE_RIFA} 🎄`;
+    if (v.yape) txt += `\n\n💜 Yape: ${v.yape}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
+    if (frase) txt += `\n\n${frase}`;
+    return `https://wa.me/${v.wa}?text=${encodeURIComponent(txt)}`;
+  }
+
+  /* ---------- Frase graciosa y luego WhatsApp ---------- */
+  let timerFrase = null, ultimaFrase = -1;
+  function pedirNumero(n) {
+    const frases = CONFIG.FRASES || [];
+    if (!frases.length) { abrirWa(linkWa(n)); return; }
+    let i = Math.floor(Math.random() * frases.length);
+    if (i === ultimaFrase && frases.length > 1) i = (i + 1) % frases.length;
+    ultimaFrase = i;
+    const link = linkWa(n, frases[i]);
+    $("fraseNum").textContent = `🎟️ Número ${n}`;
+    $("fraseTexto").textContent = frases[i];
+    $("fraseIr").href = link;
+    const barra = $("fraseBarra");
+    barra.style.animation = "none"; void barra.offsetWidth;
+    barra.style.animation = `llenar ${CONFIG.FRASE_MS || 2000}ms linear forwards`;
+    $("frase").hidden = false;
+    clearTimeout(timerFrase);
+    timerFrase = setTimeout(() => { cerrarFrase(); abrirWa(link); }, CONFIG.FRASE_MS || 2000);
+  }
+  function abrirWa(link) {
+    // Pasado el tiempo ya no cuenta como toque del usuario: si el navegador bloquea
+    // la ventana nueva, se abre WhatsApp en la misma pestaña.
+    const w = window.open(link, "_blank", "noopener");
+    if (!w) location.href = link;
+  }
+  function cerrarFrase() { clearTimeout(timerFrase); $("frase").hidden = true; }
+  $("fraseCerrar").addEventListener("click", cerrarFrase);
+  $("fraseIr").addEventListener("click", () => setTimeout(cerrarFrase, 0));
+  window.addEventListener("pageshow", cerrarFrase);
 
   /* ---------- Nieve: pocos copos y solo con CSS ---------- */
   (function nieve() {
@@ -333,7 +446,7 @@ const CONFIG = {
       const b = ev.target.closest(".c"); if (!b || !estado) return;
       const n = +b.dataset.n, e = estado.get(n);
       if (!e) {
-        if (WA) window.open(linkWa(n), "_blank", "noopener");
+        if (vendedorDe(n).wa) pedirNumero(n);
         else toast(`✨ El número ${n} está libre`);
       } else toast(e === "P" ? `🎟️ El número ${n} ya fue vendido` : `🟡 El número ${n} está reservado`);
     });
@@ -391,7 +504,7 @@ const CONFIG = {
     if (!estado) { out.textContent = "Cargando datos, intenta en unos segundos…"; return; }
     const e = estado.get(n);
     if (!e) out.innerHTML = `<span class="ok">✅ ¡El número ${n} está libre!</span>` +
-      (WA ? `<br><a class="btn wa" href="${linkWa(n)}" target="_blank" rel="noopener">💬 Pedir el ${n} por WhatsApp</a>` : "");
+      (vendedorDe(n).wa ? `<br><button class="btn wa" type="button" data-pedir="${n}">💬 Pedir el ${n} por WhatsApp</button>` : "");
     else if (e === "P") out.innerHTML = `<span class="no">❌ El número ${n} ya fue vendido. ¡Prueba otro!</span>`;
     else out.innerHTML = `<span class="re">🟡 El número ${n} está reservado.</span>`;
     if (marcar) {
@@ -401,6 +514,9 @@ const CONFIG = {
     }
   }
   $("formBuscar").addEventListener("submit", (ev) => { ev.preventDefault(); buscar(true); });
+  $("resultado").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-pedir]"); if (b) pedirNumero(+b.dataset.pedir);
+  });
 
   /* ---------- Toast ---------- */
   let tt;
