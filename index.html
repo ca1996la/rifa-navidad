@@ -182,7 +182,7 @@
   <div class="wrap">
     <span class="chip">🎄 RIFA NAVIDEÑA 2026</span>
     <h1>Sembrando <span>Sonrisas</span><br>esta Navidad</h1>
-    <p>300 números · 6 premios · ¡Ayúdanos a sembrar alegría!</p>
+    <p id="subtitulo">300 números · 6 premios · ¡Ayúdanos a sembrar alegría!</p>
     <div class="precio-badge" id="precioBadge">S/ 5 por número</div>
   </div>
 </header>
@@ -226,7 +226,7 @@
   </section>
 
   <section class="card">
-    <h2>🎟️ Tablero de números</h2>
+    <h2 id="tituloTablero">🎟️ Tablero de números</h2>
     <div class="leyenda">
       <span><i style="background:#fff;border:2px solid var(--rojo)"></i>Libre</span>
       <span><i style="background:var(--rojo)"></i>Vendido</span>
@@ -282,10 +282,13 @@ const CONFIG = {
   YAPE: "931381355",
   NOMBRE: "",   // nombre para el saludo ("Hola Ana, ..."); vacío = "Hola, ..."
   // Cada rango de números lo atiende otra persona, con su propio WhatsApp y Yape.
+  // clave: enlace propio que muestra solo ese rango, ej. .../rifa-navidad/?v=eva
+  // El enlace sin ?v= (general) muestra los 300 números.
   VENDEDORES: [
-    { desde: 1,   hasta: 60,  nombre: "Eva Samira", whatsapp: "51919058534", yape: "919058534" },
-    { desde: 61,  hasta: 120, nombre: "Esther",     whatsapp: "51926943736", yape: "926943736" },
-    { desde: 121, hasta: 180, nombre: "Luis",       whatsapp: "51937795372", yape: "937795372" }
+    { desde: 1,   hasta: 60,  clave: "eva",    nombre: "Eva Samira", whatsapp: "51919058534", yape: "919058534" },
+    { desde: 61,  hasta: 120, clave: "esther", nombre: "Esther",     whatsapp: "51926943736", yape: "926943736" },
+    { desde: 121, hasta: 180, clave: "luis",   nombre: "Luis",       whatsapp: "51937795372", yape: "937795372" },
+    { desde: 181, hasta: 300, clave: "diego",  nombre: "",         whatsapp: "51931381355", yape: "931381355" }
   ],
   // Frases al azar que aparecen al tocar un número libre, antes de abrir WhatsApp.
   FRASES: [
@@ -348,6 +351,10 @@ const CONFIG = {
   const WA = String(CONFIG.WHATSAPP || "").replace(/\D/g, "");
   const YAPE = String(CONFIG.YAPE || "").replace(/\D/g, "");
   const ESTADOS = { PAGADO: "P", RESERVADO: "R" };
+  // Enlace de vendedor (?v=clave): solo se ve y se cuenta su rango de números.
+  const CLAVE = (new URLSearchParams(location.search).get("v") || "").trim().toLowerCase();
+  const GRUPO = CLAVE ? (CONFIG.VENDEDORES || []).find((x) => String(x.clave || "").toLowerCase() === CLAVE) || null : null;
+  const DESDE = GRUPO ? GRUPO.desde : 1, HASTA = GRUPO ? GRUPO.hasta : CONFIG.TOTAL;
 
   let estado = null;            // Map n -> "P" | "R"
   let fechaSorteo = new Date(CONFIG.FECHA_SORTEO);
@@ -375,13 +382,21 @@ const CONFIG = {
   $("premios").querySelectorAll("img.foto").forEach((im) => im.addEventListener("error", () => {
     im.nextElementSibling.hidden = false; im.remove();
   }));
+  if (GRUPO) {
+    $("subtitulo").textContent = "6 premios · ¡Ayúdanos a sembrar alegría!";
+    $("tituloTablero").textContent = `🎟️ Números del ${DESDE} al ${HASTA}`;
+    $("inpBuscar").min = DESDE; $("inpBuscar").max = HASTA;
+    $("inpBuscar").placeholder = `Del ${DESDE} al ${HASTA}`;
+    $("bannerFin").textContent = "🎉 ¡Todos estos números ya se vendieron! Gracias";
+  }
   if (WA) {
     $("tipWa").hidden = false;
     $("pieWa").innerHTML = `<a class="btn wa wa-flotante" href="${linkWa()}" target="_blank" rel="noopener">💬 Pide tu número por WhatsApp</a>`;
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
   function vendedorDe(n) {
-    const v = n && (CONFIG.VENDEDORES || []).find((x) => n >= x.desde && n <= x.hasta);
+    if (!n && GRUPO) n = GRUPO.desde;   // botón del pie en un enlace de vendedor
+    const v = n &&(CONFIG.VENDEDORES || []).find((x) => n >= x.desde && n <= x.hasta);
     if (!v) return { nombre: CONFIG.NOMBRE || "", wa: WA, yape: YAPE };
     return { nombre: v.nombre || "", wa: String(v.whatsapp || "").replace(/\D/g, ""), yape: String(v.yape || "").replace(/\D/g, "") };
   }
@@ -479,7 +494,7 @@ const CONFIG = {
   /* ---------- Tablero ---------- */
   (function crearTablero() {
     const frag = document.createDocumentFragment();
-    for (let n = 1; n <= CONFIG.TOTAL; n++) {
+    for (let n = DESDE; n <= HASTA; n++) {
       const b = document.createElement("button");
       b.type = "button"; b.className = "c"; b.textContent = n; b.dataset.n = n;
       b.addEventListener("animationend", () => b.classList.remove("pop", "marca"));
@@ -499,7 +514,7 @@ const CONFIG = {
   function pintar(nuevo) {
     const primera = estado === null;
     let p = 0, r = 0;
-    for (let n = 1; n <= CONFIG.TOTAL; n++) {
+    for (let n = DESDE; n <= HASTA; n++) {
       const e = nuevo.get(n) || "L", antes = primera ? null : (estado.get(n) || "L");
       if (e === "P") p++; else if (e === "R") r++;
       if (primera || antes !== e) {
@@ -512,7 +527,7 @@ const CONFIG = {
     $("tablero").classList.remove("cargando");
     estado = nuevo;
 
-    const t = CONFIG.TOTAL, d = t - p - r;
+    const t = HASTA - DESDE + 1, d = t - p - r;
     $("nVend").textContent = p; $("nRes").textContent = r; $("nDisp").textContent = d;
     const pp = (p / t) * 100, pr = (r / t) * 100;
     $("barraP").style.width = pp + "%"; $("barraQ").style.width = pr + "%";
@@ -544,7 +559,7 @@ const CONFIG = {
   /* ---------- Buscador ---------- */
   function buscar(marcar) {
     const n = parseInt($("inpBuscar").value, 10), out = $("resultado");
-    if (!(n >= 1 && n <= CONFIG.TOTAL)) { out.innerHTML = `<span class="no">Escribe un número del 1 al ${CONFIG.TOTAL}.</span>`; return; }
+    if (!(n >= DESDE && n <= HASTA)) { out.innerHTML = `<span class="no">Escribe un número del ${DESDE} al ${HASTA}.</span>`; return; }
     if (!estado) { out.textContent = "Cargando datos, intenta en unos segundos…"; return; }
     const e = estado.get(n);
     if (!e) out.innerHTML = `<span class="ok">✅ ¡El número ${n} está libre!</span>` +
