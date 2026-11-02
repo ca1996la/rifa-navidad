@@ -324,7 +324,7 @@ const CONFIG = {
     "🍷 Si ganas la cena, el chaufa sí te va a abrazar como nadie lo hizo este año.",
     "🍷 Cena romántica para dos: tú y tu wantán frito. Una relación estable al fin."
   ],
-  FRASE_MS: 2000,   // tiempo que se muestra la frase antes de abrir WhatsApp
+  FRASE_MS: 3000,   // tiempo que se muestra la frase antes de abrir WhatsApp
   NOMBRE_RIFA: "Sembrando Sonrisas",
   PREMIOS: [
     // img: foto del premio (opcional). Si no carga, se muestra el emoji.
@@ -386,8 +386,8 @@ const CONFIG = {
   function linkWa(n, frase) {
     const v = vendedorDe(n), hola = v.nombre ? `Hola ${v.nombre},` : "Hola,";
     let txt = n ? `${hola} quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA} 🎄` : `${hola} quiero un número de la rifa ${CONFIG.NOMBRE_RIFA} 🎄`;
-    if (v.yape) txt += `\n\n💜 Yape: ${v.yape}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
     if (frase) txt += `\n\n${frase}`;
+    if (v.yape) txt += `\n\n💜 Yape: ${v.yape}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
     return `https://wa.me/${v.wa}?text=${encodeURIComponent(txt)}`;
   }
 
