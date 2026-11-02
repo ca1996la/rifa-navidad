@@ -148,7 +148,8 @@
   .frase[hidden]{display:none}
   .frase-caja{background:var(--crema);width:100%;max-width:400px;border-radius:20px;padding:22px 20px 16px;
     text-align:center;border-top:6px solid var(--dorado);box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;
-    animation:aparecer .25s ease}
+    animation:aparecer .25s ease;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
   @keyframes aparecer{from{transform:scale(.9);opacity:0}}
   .frase-cerrar{position:absolute;top:6px;right:8px;border:0;background:none;font-size:1.6rem;line-height:1;
     color:var(--suave);cursor:pointer;padding:4px 8px}
@@ -324,7 +325,7 @@ const CONFIG = {
     "🍷 Si ganas la cena, el chaufa sí te va a abrazar como nadie lo hizo este año.",
     "🍷 Cena romántica para dos: tú y tu wantán frito. Una relación estable al fin."
   ],
-  FRASE_MS: 3000,   // tiempo que se muestra la frase antes de abrir WhatsApp
+  FRASE_MS: 2000,   // tiempo que se muestra la frase antes de abrir WhatsApp (se detiene si mantienen el dedo)
   NOMBRE_RIFA: "Sembrando Sonrisas",
   PREMIOS: [
     // img: foto del premio (opcional). Si no carga, se muestra el emoji.
@@ -392,33 +393,57 @@ const CONFIG = {
   }
 
   /* ---------- Frase graciosa y luego WhatsApp ---------- */
-  let timerFrase = null, ultimaFrase = -1;
+  // Mientras se mantiene el dedo sobre la ventana, la cuenta se detiene; al soltar, va a WhatsApp.
+  let timerFrase = null, ultimaFrase = -1, linkFrase = "", restante = 0, inicio = 0, pausada = false, enviada = false;
   function pedirNumero(n) {
     const frases = CONFIG.FRASES || [];
     if (!frases.length) { abrirWa(linkWa(n)); return; }
     let i = Math.floor(Math.random() * frases.length);
     if (i === ultimaFrase && frases.length > 1) i = (i + 1) % frases.length;
     ultimaFrase = i;
-    const link = linkWa(n, frases[i]);
+    linkFrase = linkWa(n, frases[i]);
     $("fraseNum").textContent = `🎟️ Número ${n}`;
     $("fraseTexto").textContent = frases[i];
-    $("fraseIr").href = link;
-    const barra = $("fraseBarra");
+    $("fraseIr").href = linkFrase;
+    const ms = CONFIG.FRASE_MS || 2000, barra = $("fraseBarra");
     barra.style.animation = "none"; void barra.offsetWidth;
-    barra.style.animation = `llenar ${CONFIG.FRASE_MS || 2000}ms linear forwards`;
+    barra.style.animation = `llenar ${ms}ms linear forwards`;
     $("frase").hidden = false;
+    restante = ms; pausada = false; enviada = false;
+    correrCuenta();
+  }
+  function correrCuenta() {
     clearTimeout(timerFrase);
-    timerFrase = setTimeout(() => { cerrarFrase(); abrirWa(link); }, CONFIG.FRASE_MS || 2000);
+    inicio = Date.now();
+    $("fraseBarra").style.animationPlayState = "running";
+    timerFrase = setTimeout(irWa, restante);
+  }
+  function irWa() {
+    if (enviada) return;
+    enviada = true;
+    cerrarFrase();
+    abrirWa(linkFrase);
   }
   function abrirWa(link) {
-    // Pasado el tiempo ya no cuenta como toque del usuario: si el navegador bloquea
-    // la ventana nueva, se abre WhatsApp en la misma pestaña.
+    // Si ya no cuenta como toque del usuario y el navegador bloquea la ventana nueva,
+    // se abre WhatsApp en la misma pestaña.
     const w = window.open(link, "_blank", "noopener");
     if (!w) location.href = link;
   }
-  function cerrarFrase() { clearTimeout(timerFrase); $("frase").hidden = true; }
+  function cerrarFrase() { clearTimeout(timerFrase); pausada = false; $("frase").hidden = true; }
+  const cajaFrase = document.querySelector(".frase-caja");
+  cajaFrase.addEventListener("pointerdown", (ev) => {
+    if (ev.target.closest("#fraseCerrar") || pausada || enviada) return;
+    clearTimeout(timerFrase);
+    restante = Math.max(0, restante - (Date.now() - inicio));
+    pausada = true;
+    $("fraseBarra").style.animationPlayState = "paused";
+  });
+  cajaFrase.addEventListener("pointerup", () => { if (pausada) { pausada = false; irWa(); } });
+  cajaFrase.addEventListener("pointercancel", () => { if (pausada) { pausada = false; correrCuenta(); } });
+  cajaFrase.addEventListener("contextmenu", (ev) => ev.preventDefault());
   $("fraseCerrar").addEventListener("click", cerrarFrase);
-  $("fraseIr").addEventListener("click", () => setTimeout(cerrarFrase, 0));
+  $("fraseIr").addEventListener("click", (ev) => { ev.preventDefault(); irWa(); });
   window.addEventListener("pageshow", cerrarFrase);
 
   /* ---------- Nieve: pocos copos y solo con CSS ---------- */
