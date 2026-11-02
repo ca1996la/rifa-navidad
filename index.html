@@ -144,7 +144,8 @@
 
   /* ---------- Frase graciosa antes de WhatsApp ---------- */
   .frase{position:fixed;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
-    background:rgba(40,15,5,.6);padding:16px}
+    background:rgba(40,15,5,.6);padding:16px;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
   .frase[hidden]{display:none}
   .frase-caja{background:var(--crema);width:100%;max-width:400px;border-radius:20px;padding:22px 20px 16px;
     text-align:center;border-top:6px solid var(--dorado);box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;
@@ -386,9 +387,9 @@ const CONFIG = {
   }
   function linkWa(n, frase) {
     const v = vendedorDe(n), hola = v.nombre ? `Hola ${v.nombre},` : "Hola,";
-    let txt = n ? `${hola} quiero el número ${n} de la rifa ${CONFIG.NOMBRE_RIFA} 🎄` : `${hola} quiero un número de la rifa ${CONFIG.NOMBRE_RIFA} 🎄`;
+    let txt = n ? `${hola} quiero el número ${n} 🎄` : `${hola} quiero un número 🎄`;
     if (frase) txt += `\n\n${frase}`;
-    if (v.yape) txt += `\n\n💜 Yape: ${v.yape}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}\n\nTe envío la captura del pago.`;
+    if (v.yape) txt += `\n\n💜 Yape: ${v.yape}\n💰 Monto: S/ ${CONFIG.PRECIO}${n ? "" : " por número"}`;
     return `https://wa.me/${v.wa}?text=${encodeURIComponent(txt)}`;
   }
 
@@ -431,17 +432,35 @@ const CONFIG = {
     if (!w) location.href = link;
   }
   function cerrarFrase() { clearTimeout(timerFrase); pausada = false; $("frase").hidden = true; }
-  const cajaFrase = document.querySelector(".frase-caja");
-  cajaFrase.addEventListener("pointerdown", (ev) => {
+  // Toda la pantalla (no solo la caja) detiene la cuenta mientras la frase está visible.
+  const capaFrase = $("frase");
+  function pausar(ev) {
     if (ev.target.closest("#fraseCerrar") || pausada || enviada) return;
     clearTimeout(timerFrase);
     restante = Math.max(0, restante - (Date.now() - inicio));
     pausada = true;
     $("fraseBarra").style.animationPlayState = "paused";
-  });
-  cajaFrase.addEventListener("pointerup", () => { if (pausada) { pausada = false; irWa(); } });
-  cajaFrase.addEventListener("pointercancel", () => { if (pausada) { pausada = false; correrCuenta(); } });
-  cajaFrase.addEventListener("contextmenu", (ev) => ev.preventDefault());
+    if (ev.pointerId !== undefined) { try { capaFrase.setPointerCapture(ev.pointerId); } catch (e) {} }
+  }
+  function soltar(ev) {
+    if (!pausada) return;
+    if (ev.cancelable) ev.preventDefault();   // evita un clic extra tras soltar
+    pausada = false;
+    irWa();
+  }
+  function reanudar() { if (pausada) { pausada = false; correrCuenta(); } }
+  if (window.PointerEvent) {
+    capaFrase.addEventListener("pointerdown", pausar);
+    capaFrase.addEventListener("pointerup", soltar);
+    capaFrase.addEventListener("pointercancel", reanudar);
+  } else {
+    capaFrase.addEventListener("touchstart", pausar, { passive: true });
+    capaFrase.addEventListener("touchend", soltar);
+    capaFrase.addEventListener("touchcancel", reanudar);
+    capaFrase.addEventListener("mousedown", pausar);
+    capaFrase.addEventListener("mouseup", soltar);
+  }
+  capaFrase.addEventListener("contextmenu", (ev) => ev.preventDefault());
   $("fraseCerrar").addEventListener("click", cerrarFrase);
   $("fraseIr").addEventListener("click", (ev) => { ev.preventDefault(); irWa(); });
   window.addEventListener("pageshow", cerrarFrase);
