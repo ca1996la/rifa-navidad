@@ -162,6 +162,29 @@
   @keyframes llenar{to{width:100%}}
   .frase-ir{display:block;margin-top:10px;font-size:.88rem;color:var(--verde);font-weight:700;text-decoration:none}
 
+  /* ---------- Imagen para compartir ---------- */
+  .btn.oro{background:var(--dorado);color:var(--tinta);box-shadow:0 3px 0 #a57514}
+  .btn.oro:active{box-shadow:0 1px 0 #a57514}
+  .btn-imagen{width:100%;margin-top:14px;font-size:1.05rem}
+  .share{position:fixed;inset:0;z-index:7;display:flex;align-items:center;justify-content:center;
+    background:rgba(40,15,5,.65);padding:12px}
+  .share[hidden]{display:none}
+  .share-caja{background:var(--crema);width:100%;max-width:420px;max-height:calc(100vh - 24px);overflow:auto;
+    border-radius:20px;padding:16px 16px 14px;text-align:center;border-top:6px solid var(--dorado);
+    box-shadow:0 10px 30px rgba(0,0,0,.35);position:relative;animation:aparecer .25s ease}
+  .share-caja h3{margin:0 30px 10px;color:var(--verde);font-size:1.25rem}
+  .share-opc{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:10px}
+  .share-opc button{font:inherit;font-weight:800;font-size:.9rem;border:2px solid var(--verde);background:#fff;
+    color:var(--verde);border-radius:99px;padding:5px 12px;cursor:pointer}
+  .share-opc button.on{background:var(--verde);color:#fff}
+  .share-vista{position:relative;background:var(--crema-2);border-radius:12px;aspect-ratio:9/16;max-height:58vh;
+    margin:0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--suave);font-weight:700}
+  .share-vista img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+  .share-btns{display:flex;gap:8px;margin-top:12px}
+  .share-btns .btn{flex:1}
+  .share-btns [hidden]{display:none}
+  .share-nota{font-size:.82rem;color:var(--suave);margin:10px 0 0}
+
   /* ---------- Toast y pie ---------- */
   .toast{position:fixed;left:50%;bottom:18px;transform:translate(-50%,150%);background:var(--tinta);
     color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;z-index:5;max-width:calc(100% - 32px);
@@ -238,6 +261,7 @@
       <span id="ultima">Cargando datos…</span>
       <span class="aviso" id="aviso">⚠️ Sin conexión, mostrando los últimos datos.</span>
     </div>
+    <button class="btn oro btn-imagen" id="btnImagen" type="button">📸 Crear imagen para compartir</button>
   </section>
 
   <section class="card">
@@ -261,6 +285,20 @@
     <p class="frase-texto" id="fraseTexto"></p>
     <div class="frase-pista"><div class="frase-barra" id="fraseBarra"></div></div>
     <a class="frase-ir" id="fraseIr" target="_blank" rel="noopener">Abriendo WhatsApp… <u>ir ahora</u></a>
+  </div>
+</div>
+
+<div class="share" id="share" hidden>
+  <div class="share-caja" role="dialog" aria-modal="true" aria-labelledby="shareTitulo">
+    <button class="frase-cerrar" type="button" id="shareCerrar" aria-label="Cerrar">×</button>
+    <h3 id="shareTitulo">📸 Imagen para compartir</h3>
+    <div class="share-opc" id="shareOpc" hidden></div>
+    <div class="share-vista"><span id="shareEstado">Creando imagen…</span><img id="shareImg" alt="Imagen actualizada de la rifa" hidden></div>
+    <div class="share-btns">
+      <button class="btn wa" type="button" id="shareBtn" hidden>📤 Compartir</button>
+      <a class="btn" id="shareDescargar" download="rifa.png" hidden>⬇️ Descargar</a>
+    </div>
+    <p class="share-nota" id="shareNota">Toca <b>Compartir</b> y elige WhatsApp: puedes mandarla a un chat o subirla a tu estado.</p>
   </div>
 </div>
 
@@ -583,6 +621,162 @@ const CONFIG = {
     const el = $("toast"); el.textContent = msg; el.classList.add("on");
     clearTimeout(tt); tt = setTimeout(() => el.classList.remove("on"), 2200);
   }
+
+  /* ---------- Imagen para compartir (estados / WhatsApp) ---------- */
+  // Arma en el momento una imagen vertical (1080×1920) con el tablero del grupo y la ofrece para compartir.
+  const IW = 1080, IH = 1920;
+  let grupoImg = GRUPO, urlImg = "", archivoImg = null, textoImg = "", turnoImg = 0;
+  const baseUrl = () => location.href.split(/[?#]/)[0].replace(/index\.html$/, "");
+  const nombreCorto = (g) => (g.nombre || "").split(" ")[0] || g.clave.charAt(0).toUpperCase() + g.clave.slice(1);
+  const telBonito = (wa) => { const t = wa.length === 11 && wa.startsWith("51") ? wa.slice(2) : wa; return t.replace(/(\d{3})(?=\d)/g, "$1 "); };
+  function rr(x, a, b, w, h, r) {
+    x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r);
+    x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath();
+  }
+  const cargarImg = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+
+  async function dibujarImagen(g) {
+    const desde = g ? g.desde : 1, hasta = g ? g.hasta : CONFIG.TOTAL, total = hasta - desde + 1;
+    const B = '"Baloo 2", "Nunito", sans-serif', N = '"Nunito", system-ui, sans-serif';
+    try { await Promise.all([document.fonts.load(`800 60px "Baloo 2"`), document.fonts.load(`800 30px "Nunito"`)]); } catch (e) {}
+    const fotos = await Promise.all(CONFIG.PREMIOS.map((p) => p.img ? cargarImg(p.img) : null));
+    const cv = document.createElement("canvas"); cv.width = IW; cv.height = IH;
+    const x = cv.getContext("2d");
+    const txt = (s, y, font, color) => { x.font = font; x.fillStyle = color; x.textAlign = "center"; x.textBaseline = "alphabetic"; x.fillText(s, IW / 2, y); };
+
+    // Fondo y encabezado
+    x.fillStyle = "#fff8ec"; x.fillRect(0, 0, IW, IH);
+    const gr = x.createLinearGradient(0, 0, 0, 450); gr.addColorStop(0, "#b3261e"); gr.addColorStop(1, "#7f1712");
+    x.fillStyle = gr; x.fillRect(0, 0, IW, 450);
+    x.fillStyle = "#e2a72e"; x.fillRect(0, 450, IW, 12);
+    x.font = "34px sans-serif"; x.fillStyle = "rgba(255,255,255,.3)"; x.textAlign = "center";
+    [[90, 80], [990, 100], [60, 330], [1020, 360], [190, 210], [890, 250]].forEach(([a, b]) => x.fillText("❄", a, b));
+    txt("RIFA NAVIDEÑA " + lima(fechaSorteo).getUTCFullYear(), 95, `800 40px ${B}`, "#f6d77d");
+    txt(CONFIG.NOMBRE_RIFA || "Sembrando Sonrisas", 205, `800 104px ${B}`, "#fff");
+    const pt = `S/ ${CONFIG.PRECIO} por número`; x.font = `800 56px ${B}`;
+    const pw = x.measureText(pt).width + 80, px = (IW - pw) / 2;
+    x.fillStyle = "#a57514"; rr(x, px, 258, pw, 84, 42); x.fill();
+    x.fillStyle = "#e2a72e"; rr(x, px, 250, pw, 84, 42); x.fill();
+    txt(pt, 312, `800 56px ${B}`, "#3a2416");
+    txt("📅 Sorteo: " + fechaLarga(fechaSorteo), 405, `700 34px ${N}`, "#fff");
+
+    // Título y contadores del grupo
+    let p = 0, r = 0;
+    for (let n = desde; n <= hasta; n++) { const e = estado.get(n); if (e === "P") p++; else if (e === "R") r++; }
+    const libres = total - p - r;
+    txt(`🎟️ Números del ${desde} al ${hasta}`, 545, `800 62px ${B}`, "#1d6b3a");
+    const quedan = libres === 1 ? "¡Queda 1 libre!" : `¡Quedan ${libres} libres!`;
+    txt(libres ? `${quedan}  ·  ${p} vendido${p === 1 ? "" : "s"}` : "¡Todos vendidos! Gracias 🎉", 610, `800 40px ${N}`, "#b3261e");
+
+    // Tablero: elige columnas para que las casillas salgan lo más grandes posible
+    const AW = 960, AH = 800, top0 = 645;
+    let mejor = { c: 10, s: 0, v: 0 };
+    for (let c = 5; c <= 20; c++) {
+      const s = Math.min(AW / c, AH / Math.ceil(total / c)), v = s * (total % c === 0 ? 1.12 : 1);
+      if (v > mejor.v) mejor = { c, s, v };
+    }
+    const cols = mejor.c, filas = Math.ceil(total / cols), s = Math.min(mejor.s, 130), gap = Math.round(s * .12), cs = s - gap;
+    const ox = (IW - (cols * s - gap)) / 2, oy = top0 + (AH - (filas * s - gap)) / 2;
+    for (let i = 0; i < total; i++) {
+      const n = desde + i, e = estado.get(n) || "L", cx = ox + (i % cols) * s, cy = oy + Math.floor(i / cols) * s;
+      const lw = Math.max(2, Math.round(cs * .06));
+      x.fillStyle = e === "P" ? "#b3261e" : e === "R" ? "#e2a72e" : "#fff";
+      rr(x, cx, cy, cs, cs, cs * .18); x.fill();
+      if (e === "L") { x.lineWidth = lw; x.strokeStyle = "#b3261e"; rr(x, cx + lw / 2, cy + lw / 2, cs - lw, cs - lw, cs * .16); x.stroke(); }
+      x.font = `700 ${Math.round(cs * (n >= 100 ? .38 : .46))}px ${B}`;
+      x.fillStyle = e === "P" ? "#fff" : e === "R" ? "#3a2416" : "#b3261e";
+      x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText(String(n), cx + cs / 2, cy + cs / 2 + cs * .04);
+    }
+
+    // Leyenda
+    const ley = [["#fff", "Libre"], ["#b3261e", "Vendido"], ["#e2a72e", "Reservado"]];
+    x.font = `800 32px ${N}`;
+    const anchos = ley.map(([, t]) => 40 + 12 + x.measureText(t).width), sep = 44;
+    let lx = (IW - anchos.reduce((a, b) => a + b, 0) - sep * (ley.length - 1)) / 2;
+    ley.forEach(([col, t], k) => {
+      x.fillStyle = col; rr(x, lx, 1462, 40, 40, 9); x.fill();
+      if (col === "#fff") { x.lineWidth = 3; x.strokeStyle = "#b3261e"; rr(x, lx + 1.5, 1463.5, 37, 37, 8); x.stroke(); }
+      x.fillStyle = "#3a2416"; x.textAlign = "left"; x.textBaseline = "middle"; x.fillText(t, lx + 52, 1483);
+      lx += anchos[k] + sep;
+    });
+
+    // Premios
+    txt(`🎁 ${CONFIG.PREMIOS.length} premios`, 1565, `800 40px ${B}`, "#1d6b3a");
+    const ft = 130, fg = 24, fx0 = (IW - (fotos.length * ft + (fotos.length - 1) * fg)) / 2;
+    fotos.forEach((im, k) => {
+      const fx = fx0 + k * (ft + fg), fy = 1590;
+      x.fillStyle = "#fff"; rr(x, fx - 6, fy - 6, ft + 12, ft + 12, 20); x.fill();
+      x.save(); rr(x, fx, fy, ft, ft, 15); x.clip();
+      if (im) x.drawImage(im, fx, fy, ft, ft);
+      else { x.fillStyle = "#fbecd2"; x.fillRect(fx, fy, ft, ft); x.font = "70px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(CONFIG.PREMIOS[k].emoji, fx + ft / 2, fy + ft / 2); }
+      x.restore();
+    });
+    txt("Actualizado: " + fechaLarga(new Date()), 1760, `700 26px ${N}`, "#7a6352");
+
+    // Pie: a quién pedirle el número
+    const v = g ? vendedorDe(g.desde) : { nombre: CONFIG.NOMBRE || "", wa: WA };
+    const link = (baseUrl() + (g ? g.clave : "")).replace(/^https?:\/\//, "");
+    x.fillStyle = "#1d6b3a"; x.fillRect(0, 1790, IW, IH - 1790);
+    x.fillStyle = "#e2a72e"; x.fillRect(0, 1790, IW, 8);
+    if (v.wa) {
+      txt("💬 Pide tu número por WhatsApp: " + telBonito(v.wa), 1850, `800 40px ${B}`, "#fff");
+      txt((v.nombre ? v.nombre + "  ·  " : "") + link, 1897, `700 30px ${N}`, "#f6d77d");
+    } else txt(link, 1870, `800 36px ${N}`, "#f6d77d");
+
+    const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+    return { blob, libres, link: "https://" + link };
+  }
+
+  async function abrirImagen(g) {
+    const turno = ++turnoImg;
+    grupoImg = g;
+    $("share").hidden = false;
+    $("shareImg").hidden = true; $("shareBtn").hidden = true; $("shareDescargar").hidden = true;
+    $("shareEstado").textContent = "Creando imagen…";
+    $("shareOpc").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.g === (g ? g.clave : "")));
+    await actualizar();   // con los datos más recientes
+    if (turno !== turnoImg) return;
+    if (!estado) { $("shareEstado").textContent = "No se pudieron cargar los números. Intenta de nuevo."; return; }
+    let res;
+    try { res = await dibujarImagen(g); } catch (e) { console.warn(e); }
+    if (turno !== turnoImg) return;
+    if (!res || !res.blob) { $("shareEstado").textContent = "No se pudo crear la imagen en este navegador."; return; }
+    if (urlImg) URL.revokeObjectURL(urlImg);
+    urlImg = URL.createObjectURL(res.blob);
+    const nombre = `rifa-${g ? g.clave : "todos"}.png`;
+    archivoImg = typeof File === "function" ? new File([res.blob], nombre, { type: "image/png" }) : null;
+    textoImg = `🎄 Rifa ${CONFIG.NOMBRE_RIFA || "Sembrando Sonrisas"}: ` +
+      (res.libres ? `¡quedan ${res.libres} números libres! Elige el tuyo aquí 👉 ` : "¡todos vendidos, gracias! 👉 ") + res.link;
+    $("shareImg").src = urlImg; $("shareImg").hidden = false; $("shareEstado").textContent = "";
+    $("shareDescargar").href = urlImg; $("shareDescargar").download = nombre; $("shareDescargar").hidden = false;
+    let puede = false;
+    try { puede = !!(archivoImg && navigator.canShare && navigator.canShare({ files: [archivoImg] })); } catch (e) {}
+    $("shareBtn").hidden = !puede;
+    $("shareNota").innerHTML = puede
+      ? "Toca <b>Compartir</b> y elige WhatsApp: puedes mandarla a un chat o subirla a tu estado."
+      : "Toca <b>Descargar</b> (o mantén presionada la imagen para guardarla) y luego súbela a WhatsApp.";
+  }
+  function cerrarImagen() { turnoImg++; $("share").hidden = true; }
+
+  if (!GRUPO && (CONFIG.VENDEDORES || []).length) {
+    // En el enlace general se elige de qué grupo hacer la imagen
+    $("shareOpc").hidden = false;
+    $("shareOpc").innerHTML = `<button type="button" data-g="">Todos</button>` +
+      CONFIG.VENDEDORES.map((g) => `<button type="button" data-g="${esc(g.clave)}">${esc(nombreCorto(g))}</button>`).join("");
+    $("shareOpc").addEventListener("click", (ev) => {
+      const b = ev.target.closest("button[data-g]"); if (!b) return;
+      abrirImagen(CONFIG.VENDEDORES.find((g) => g.clave === b.dataset.g) || null);
+    });
+  }
+  $("btnImagen").addEventListener("click", () => abrirImagen(GRUPO));
+  $("shareCerrar").addEventListener("click", cerrarImagen);
+  $("share").addEventListener("click", (ev) => { if (ev.target === $("share")) cerrarImagen(); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !$("share").hidden) cerrarImagen(); });
+  $("shareBtn").addEventListener("click", () => {
+    if (!archivoImg) return;
+    navigator.share({ files: [archivoImg], text: textoImg }).catch(() => {});
+  });
 
   /* ---------- Datos: JSONP con anti-caché ---------- */
   function jsonp(url, ms) {
